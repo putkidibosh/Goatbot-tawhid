@@ -1,165 +1,105 @@
+const axios = require("axios");
+const fs = require("fs-extra");
+
 module.exports = {
-	config: {
-		name: "count",
-		version: "1.3",
-		author: "NTKhang",
-		countDown: 5,
-		role: 0,
-		description: {
-			vi: "Xem số lượng tin nhắn của tất cả thành viên hoặc bản thân (tính từ lúc bot vào nhóm)",
-			en: "View the number of messages of all members or yourself (since the bot joined the group)"
-		},
-		category: "box chat",
-		guide: {
-			vi: "   {pn}: dùng để xem số lượng tin nhắn của bạn"
-				+ "\n   {pn} @tag: dùng để xem số lượng tin nhắn của những người được tag"
-				+ "\n   {pn} all: dùng để xem số lượng tin nhắn của tất cả thành viên",
-			en: "   {pn}: used to view the number of messages of you"
-				+ "\n   {pn} @tag: used to view the number of messages of those tagged"
-				+ "\n   {pn} all: used to view the number of messages of all members"
-		}
-	},
+    config: {
+        name: "count",
+        version: "4.0.0",
+        author: "Mr.King",
+        countDown: 5,
+        role: 0,
+        aliases: ["c"],
+        category: "box chat"
+    },
 
-	langs: {
-		vi: {
-			count: "Số tin nhắn của các thành viên:",
-			endMessage: "Những người không có tên trong danh sách là chưa gửi tin nhắn nào.",
-			page: "Trang [%1/%2]",
-			reply: "Phản hồi tin nhắn này kèm số trang để xem tiếp",
-			result: "%1 hạng %2 với %3 tin nhắn",
-			yourResult: "Bạn đứng hạng %1 và đã gửi %2 tin nhắn trong nhóm này",
-			invalidPage: "Số trang không hợp lệ"
-		},
-		en: {
-			count: "Number of messages of members:",
-			endMessage: "Those who do not have a name in the list have not sent any messages.",
-			page: "Page [%1/%2]",
-			reply: "Reply to this message with the page number to view more",
-			result: "%1 rank %2 with %3 messages",
-			yourResult: "You are ranked %1 and have sent %2 messages in this group",
-			invalidPage: "Invalid page number"
-		}
-	},
+    onStart: async function ({ args, threadsData, message, event, api }) {
+        const { threadID, senderID, messageReply, type, mentions } = event;
+        const threadData = await threadsData.get(threadID);
+        const { members, adminIDs } = threadData;
+        const usersInGroup = (await api.getThreadInfo(threadID)).participantIDs;
+        const isGroupAdmin = adminIDs.includes(senderID);
 
-	onStart: async function ({ args, threadsData, message, event, api, commandName, getLang }) {
-		const { threadID, senderID } = event;
-		const threadData = await threadsData.get(threadID);
-		const { members } = threadData;
-		const usersInGroup = (await api.getThreadInfo(threadID)).participantIDs;
-		let arraySort = [];
-		for (const user of members) {
-			if (!usersInGroup.includes(user.userID))
-				continue;
-			const charac = "️️️️️️️️️️️️️️️️️"; // This character is banned from facebook chat (it is not an empty string)
-			arraySort.push({
-				name: user.name.includes(charac) ? `Uid: ${user.userID}` : user.name,
-				count: user.count,
-				uid: user.userID
-			});
-		}
-		let stt = 1;
-		arraySort.sort((a, b) => b.count - a.count);
-		arraySort.map(item => item.stt = stt++);
+        let arraySort = members
+            .filter(u => usersInGroup.includes(u.userID))
+            .map(u => ({
+                name: u.name,
+                count: u.count || 0,
+                uid: u.userID
+            }))
+            .sort((a, b) => b.count - a.count)
+            .map((item, index) => ({ ...item, stt: index + 1 }));
 
-		if (args[0]) {
-			if (args[0].toLowerCase() == "all") {
-				let msg = getLang("count");
-				const endMessage = getLang("endMessage");
-				for (const item of arraySort) {
-					if (item.count > 0)
-						msg += `\n${item.stt}/ ${item.name}: ${item.count}`;
-				}
+        // এনিমে ফাইটিং জিআইএফ ফাংশন
+        const sendWithGif = async (text) => {
+            try {
+                const res = await axios.get("https://api.otakugifs.xyz/gif?reaction=punch"); // ফাইটিং রিয়েকশন
+                const imgUrl = res.data.url;
+                const path = __dirname + `/cache/fight_${threadID}.gif`;
+                const imageRes = await axios.get(imgUrl, { responseType: "arraybuffer" });
+                fs.writeFileSync(path, Buffer.from(imageRes.data, "utf-8"));
+                
+                return api.sendMessage({
+                    body: text,
+                    attachment: fs.createReadStream(path)
+                }, threadID, () => { if (fs.existsSync(path)) fs.unlinkSync(path); });
+            } catch (err) {
+                return api.sendMessage(text, threadID);
+            }
+        };
 
-				if ((msg + endMessage).length > 19999) {
-					msg = "";
-					let page = parseInt(args[1]);
-					if (isNaN(page))
-						page = 1;
-					const splitPage = global.utils.splitPage(arraySort, 50);
-					arraySort = splitPage.allPage[page - 1];
-					for (const item of arraySort) {
-						if (item.count > 0)
-							msg += `\n${item.stt}/ ${item.name}: ${item.count}`;
-					}
-					msg += getLang("page", page, splitPage.totalPage)
-						+ `\n${getLang("reply")}`
-						+ `\n\n${endMessage}`;
+        // ১. হেল্প মেনু
+        if (args[0] === "menu") {
+            if (!isGroupAdmin) return message.reply("🚫 𝐎𝐧𝐥𝐲 𝐆𝐫𝐨𝐮𝐩 𝐀𝐝𝐦𝐢𝐧𝐬 𝐜𝐚𝐧 𝐯𝐢𝐞𝐰 𝐭𝐡𝐢𝐬 𝐦𝐞𝐧𝐮");
+            const menuMsg = `📋 ( 𝐂𝐨𝐮𝐧𝐭 𝐌𝐚𝐧𝐮𝐚𝐥 )\n━━━━━━━━━━━━━━━━━━\n🔹 𝐜𝐨𝐮𝐧𝐭 / 𝐜 -> 𝐘𝐨𝐮𝐫 𝐬𝐭𝐚𝐭𝐬\n🔹 𝐜𝐨𝐮𝐧𝐭 (𝐫𝐞𝐩𝐥𝐲) -> 𝐔𝐬𝐞𝐫 𝐬𝐭𝐚𝐭𝐬\n🔹 𝐜𝐨𝐮𝐧𝐭 𝐚𝐥𝐥 -> 𝐅𝐮𝐥𝐥 𝐫𝐚𝐧𝐤𝐢𝐧𝐠\n🔹 𝐜𝐨𝐮𝐧𝐭 𝐫𝐞𝐦𝐨𝐯𝐞 (𝐧𝐮𝐦) -> 𝐊𝐢𝐜𝐤 𝐥𝐨𝐰 𝐦𝐬𝐠 𝐮𝐬𝐞𝐫𝐬\n━━━━━━━━━━━━━━━━━━\n• 𝐌𝐫.𝐊𝐢𝐧𝐠 𝐎𝐩𝐞𝐫𝐚𝐭𝐢𝐨𝐧🐉`;
+            return sendWithGif(menuMsg);
+        }
 
-					return message.reply(msg, (err, info) => {
-						if (err)
-							return message.err(err);
-						global.GoatBot.onReply.set(info.messageID, {
-							commandName,
-							messageID: info.messageID,
-							splitPage,
-							author: senderID
-						});
-					});
-				}
-				message.reply(msg);
-			}
-			else if (event.mentions) {
-				let msg = "";
-				for (const id in event.mentions) {
-					const findUser = arraySort.find(item => item.uid == id);
-					msg += `\n${getLang("result", findUser.name, findUser.stt, findUser.count)}`;
-				}
-				message.reply(msg);
-			}
-		}
-		else {
-			const findUser = arraySort.find(item => item.uid == senderID);
-			return message.reply(getLang("yourResult", findUser.stt, findUser.count));
-		}
-	},
+        // ২. রিমুভ সিস্টেম
+        if (args[0] === "remove") {
+            if (!isGroupAdmin) return message.reply("🚫 𝐎𝐧𝐥𝐲 𝐆𝐫𝐨𝐮𝐩 𝐀𝐝𝐦𝐢𝐧𝐬 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐢𝐬");
+            const limit = parseInt(args[1]);
+            if (isNaN(limit)) return message.reply("⚠️ 𝐏𝐥𝐞𝐚𝐬𝐞 𝐩𝐫𝐨𝐯𝐢𝐝𝐞 𝐚 𝐧𝐮𝐦𝐛𝐞𝐫 (𝐞.𝐠: 𝐜𝐨𝐮𝐧𝐭 𝐫𝐞𝐦𝐨𝐯𝐞 𝟓)");
 
-	onReply: ({ message, event, Reply, commandName, getLang }) => {
-		const { senderID, body } = event;
-		const { author, splitPage } = Reply;
-		if (author != senderID)
-			return;
-		const page = parseInt(body);
-		if (isNaN(page) || page < 1 || page > splitPage.totalPage)
-			return message.reply(getLang("invalidPage"));
-		let msg = getLang("count");
-		const endMessage = getLang("endMessage");
-		const arraySort = splitPage.allPage[page - 1];
-		for (const item of arraySort) {
-			if (item.count > 0)
-				msg += `\n${item.stt}/ ${item.name}: ${item.count}`;
-		}
-		msg += getLang("page", page, splitPage.totalPage)
-			+ "\n" + getLang("reply")
-			+ "\n\n" + endMessage;
-		message.reply(msg, (err, info) => {
-			if (err)
-				return message.err(err);
-			message.unsend(Reply.messageID);
-			global.GoatBot.onReply.set(info.messageID, {
-				commandName,
-				messageID: info.messageID,
-				splitPage,
-				author: senderID
-			});
-		});
-	},
+            let kickCount = 0;
+            const toKick = arraySort.filter(u => u.count <= limit && !adminIDs.includes(u.uid));
 
-	onChat: async ({ usersData, threadsData, event }) => {
-		const { senderID, threadID } = event;
-		const members = await threadsData.get(threadID, "members");
-		const findMember = members.find(user => user.userID == senderID);
-		if (!findMember) {
-			members.push({
-				userID: senderID,
-				name: await usersData.getName(senderID),
-				nickname: null,
-				inGroup: true,
-				count: 1
-			});
-		}
-		else
-			findMember.count += 1;
-		await threadsData.set(threadID, members, "members");
-	}
+            for (const user of toKick) {
+                await api.removeUserFromGroup(user.uid, threadID);
+                kickCount++;
+            }
+            return sendWithGif(`✅ 𝐑𝐞𝐦𝐨𝐯𝐞𝐝 ${kickCount} 𝐦𝐞𝐦𝐛𝐞𝐫𝐬 𝐰𝐢𝐭𝐡 𝐥𝐞𝐬𝐬 𝐭𝐡𝐚𝐧 ${limit} 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬`);
+        }
 
+        // ৩. অল মেম্বার লিস্ট
+        if (args[0] === "all") {
+            let msg = `🏆 ( 𝐆𝐫𝐨𝐮𝐩 𝐋𝐞𝐚𝐝𝐞𝐫𝐛𝐨𝐚𝐫𝐝 )\n━━━━━━━━━━━━━━━━━━`;
+            for (const item of arraySort) {
+                msg += `\n${item.stt}. ${item.name}: ${item.count}`;
+            }
+            return sendWithGif(msg + `\n━━━━━━━━━━━━━━━━━━\n• 𝐌𝐫.𝐊𝐢𝐧𝐠 𝐒𝐲𝐬𝐭𝐞𝐦🐉`);
+        }
+
+        // ৪. স্ট্যাটাস চেক
+        let targetID = type === "message_reply" ? messageReply.senderID : senderID;
+        if (Object.keys(mentions).length > 0) targetID = Object.keys(mentions)[0];
+
+        const findUser = arraySort.find(item => item.uid == targetID);
+        if (!findUser) return message.reply("❌ 𝐔𝐬𝐞𝐫 𝐝𝐚𝐭𝐚 𝐧𝐨𝐭 𝐟𝐨𝐮𝐧𝐝!");
+
+        const title = targetID == senderID ? "𝐘𝐨𝐮𝐫 𝐒𝐭𝐚𝐭𝐬" : "𝐔𝐬𝐞𝐫 𝐒𝐭𝐚𝐭𝐬";
+        const statsMsg = `📊 ( ${title} )\n━━━━━━━━━━━━━━━━━━\n👤 | 𝐍𝐚𝐦𝐞: ${findUser.name}\n👑 | 𝐑𝐚𝐧𝐤: #${findUser.stt}\n💬 | 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬: ${findUser.count}\n━━━━━━━━━━━━━━━━━━\n• 𝐌𝐫.𝐊𝐢𝐧𝐠 𝐒𝐲𝐬𝐭𝐞𝐦🐉`;
+        return sendWithGif(statsMsg);
+    },
+
+    onChat: async ({ usersData, threadsData, event }) => {
+        const { senderID, threadID } = event;
+        let members = await threadsData.get(threadID, "members") || [];
+        const findMember = members.find(user => user.userID == senderID);
+        if (!findMember) {
+            members.push({ userID: senderID, name: await usersData.getName(senderID), count: 1 });
+        } else {
+            findMember.count = (findMember.count || 0) + 1;
+        }
+        await threadsData.set(threadID, members, "members");
+    }
 };

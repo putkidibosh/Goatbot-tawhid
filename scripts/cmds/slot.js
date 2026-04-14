@@ -1,111 +1,102 @@
-const { GoatWrapper } = require("fca-saim-x69x");
-
 module.exports = {
   config: {
     name: "slot",
-    version: "1.0",
-    author: "Saimx69x",
+    version: "4.5.0",
+    author: "Mr.King",
     countDown: 5,
     role: 0,
-    category: "game",
-    description: "🎰 A fun slot game! Place your bet, spin the reels, and see how much you can win. Excitement guaranteed every spin!",
-    usage: "slot <amount>\nExample: /slot 1000"
+    shortDescription: { en: "Slots with hidden counter and 400M daily reward" },
+    category: "Game",
   },
 
-  onStart: async function ({ event, api, usersData, args }) {
-    const userId = event.senderID;
-    const bet = parseInt(args[0]);
+  onStart: async function ({ args, api, event, usersData, message }) {
+    const { senderID } = event;
+    const userData = await usersData.get(senderID);
+    const money = userData.money || 0;
+    const name = await usersData.getName(senderID);
 
-    let user = await usersData.get(userId);
-    if (!user) {
-      user = { money: 0 };
-      await usersData.set(userId, user);
+    // 1. Economy Parsing
+    const betInput = args[0];
+    if (!betInput) return message.reply(">🎀 ( 𝐒𝐥𝐨𝐭 𝐌𝐚𝐜𝐡𝐢𝐧𝐞 )\n━━━━━━━━━━━━━━━━━━\n⚠️ | 𝐁𝐚𝐛𝐲, 𝐞𝐧𝐭𝐞𝐫 𝐚𝐧 𝐚𝐦𝐨𝐮𝐧𝐭! (𝐄𝐱: 𝟏𝐌)");
+
+    const betAmount = parseSmartAmount(betInput);
+
+    // 2. Bet Limit Check (200M)
+    const maxBet = 200000000;
+    if (isNaN(betAmount) || betAmount <= 0) return message.reply("⚠️ | 𝐁𝐚𝐛𝐲, 𝐞𝐧𝐭𝐞𝐫 𝐚 𝐯𝐚𝐥𝐢𝐝 𝐚𝐦𝐨𝐮𝐧𝐭!");
+    if (betAmount > maxBet) return message.reply(`❌ | 𝐁𝐚𝐛𝐲, 𝐭𝐡𝐞 𝐦𝐚𝐱𝐢𝐦𝐮𝐦 𝐬𝐥𝐨𝐭 𝐥𝐢𝐦𝐢𝐭 𝐢𝐬 $${formatNumber(maxBet)}!`);
+    if (betAmount > money) return message.reply(`❌ | 𝐁𝐚𝐛𝐲, 𝐲𝐨𝐮 𝐨𝐧𝐥𝐲 𝐡𝐚𝐯𝐞 $${formatNumber(money)}!`);
+
+    // 3. Hidden Daily Limit Logic
+    const today = new Date().toISOString().slice(0, 10);
+    let slotLimit = userData.slotLimit || { date: today, count: 0 };
+
+    if (slotLimit.date !== today) {
+      slotLimit = { date: today, count: 0 };
     }
 
-    let prefix = event.body ? event.body[0] : "/";
-
-    if (!bet || bet <= 0) {
-      return api.sendMessage(
-        `❌ 𝐄𝐍𝐓𝐄𝐑 𝐀 𝐕𝐀𝐋𝐈𝐃 𝐁𝐄𝐓.\n𝐄𝐗𝐀𝐌𝐏𝐋𝐄: ${prefix}slot 1000`,
-        event.threadID,
-        event.messageID
-      );
+    // Stop command if user reached 800 spins
+    if (slotLimit.count >= 800) {
+      return message.reply(">🎀 ( 𝐋𝐢𝐦𝐢𝐭 𝐑𝐞𝐚𝐜𝐡𝐞𝐝 )\n━━━━━━━━━━━━━━━━━━\n🚫 | 𝐁𝐚𝐛𝐲, 𝐲𝐨𝐮 𝐡𝐚𝐯𝐞 𝐟𝐢𝐧𝐢𝐬𝐡𝐞𝐝 𝐲𝐨𝐮𝐫 𝟖𝟎𝟎 𝐬𝐩𝐢𝐧𝐬!\n✨ | 𝐒𝐥𝐨𝐭 𝐢𝐬 𝐧𝐨𝐰 𝐜𝐥𝐨𝐬𝐞𝐝 𝐟𝐨𝐫 𝐲𝐨𝐮 𝐮𝐧𝐭𝐢𝐥 𝐭𝐨𝐦𝐨𝐫𝐫𝐨𝐰.");
     }
 
-    if (user.money < bet) {
-      return api.sendMessage(
-        `❌ 𝐍𝐎𝐓 𝐄𝐍𝐎𝐔𝐆𝐇 𝐁𝐀𝐋𝐀𝐍𝐂𝐄.\n𝐁𝐀𝐋𝐀𝐍𝐂𝐄: ${user.money}$`,
-        event.threadID,
-        event.messageID
-      );
+    // 4. Slot Logic (65% Win Rate)
+    const isWin = Math.random() < 0.65;
+    const slots = ["🍒", "💎", "⭐", "💰", "👑", "🍀"];
+    let s1, s2, s3, balanceChange;
+
+    if (isWin) {
+      const winSymbol = slots[Math.floor(Math.random() * slots.length)];
+      s1 = s2 = s3 = winSymbol;
+      balanceChange = betAmount; // 2x Payout
+    } else {
+      s1 = slots[Math.floor(Math.random() * slots.length)];
+      s2 = slots[Math.floor(Math.random() * slots.length)];
+      s3 = slots[Math.floor(Math.random() * slots.length)];
+      if (s1 === s2 && s2 === s3) s3 = "💔"; 
+      balanceChange = -betAmount;
     }
 
-    user.money -= bet;
+    // 5. 800th Spin Special Reward
+    const newSpinCount = slotLimit.count + 1;
+    let rewardText = "";
+    let finalBalanceChange = balanceChange;
 
-    const symbols = ["🍒", "🍋", "🔔", "⭐", "💎"];
-    let s1, s2, s3;
-
-    const chance = Math.random();
-
-    if (chance < 0.50) {
-      s1 = s2 = symbols[Math.floor(Math.random() * symbols.length)];
-      s3 = symbols[Math.floor(Math.random() * symbols.length)];
-    } 
-    else if (chance < 0.70) {
-      s1 = s2 = s3 = symbols[Math.floor(Math.random() * symbols.length)];
-    } 
-    else {
-      const shuffled = symbols.sort(() => 0.5 - Math.random());
-      s1 = shuffled[0];
-      s2 = shuffled[1];
-      s3 = shuffled[2];
+    if (newSpinCount === 800) {
+      const rewardAmount = 400000000; // 400M
+      finalBalanceChange += rewardAmount;
+      rewardText = `\n🎁 | 𝐒𝐏𝐄𝐂𝐈𝐀𝐋 𝐑𝐄𝐖𝐀𝐑𝐃: $${formatNumber(rewardAmount)} 𝐚𝐝𝐝𝐞𝐝!`;
     }
 
-    let winnings = 0;
-    let status = "";
+    // 6. Silent Update to Database
+    await usersData.set(senderID, { 
+      money: money + finalBalanceChange,
+      slotLimit: { date: today, count: newSpinCount }
+    });
 
-    if (s1 === s2 && s2 === s3) {
-      winnings = bet * 3;
-      user.money += winnings;
-      status = `✅ 𝐓𝐑𝐈𝐏𝐋𝐄 𝐌𝐀𝐓𝐂𝐇!\n│  𝐘𝐎𝐔 𝐖𝐎𝐍 ${winnings}$ 🎉`;
-    }
-    else if (s1 === s2 || s1 === s3 || s2 === s3) {
-      winnings = bet * 2;
-      user.money += winnings;
-      status = `✅ 𝐃𝐎𝐔𝐁𝐋𝐄 𝐌𝐀𝐓𝐂𝐇!\n│  𝐘𝐎𝐔 𝐖𝐎𝐍 ${winnings}$ 🎉`;
-    }
-    else {
-      status = `😢 𝐍𝐎 𝐌𝐀𝐓𝐂𝐇.\n│  𝐘𝐎𝐔 𝐋𝐎𝐒𝐓 ${bet}$`;
-    }
+    const header = `>🎀 ( ${name} )\n━━━━━━━━━━━━━━━━━━\n`;
+    const footer = `\n━━━━━━━━━━━━━━━━━━\n• 𝐄𝐧𝐣𝐨𝐲 𝐛𝐛𝐲🐉 [ 💛 | 💛 | 💛 ]`;
 
-    await usersData.set(userId, user);
-
-    let spinningMsg = await api.sendMessage("🎰 𝐒𝐋𝐎𝐓 𝐌𝐀𝐂𝐇𝐈𝐍𝐄\nSpinning... 🍒🍋🔔", event.threadID, event.messageID);
-
-    const spinSteps = [
-      [symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)]],
-      [symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)]],
-      [s1, s2, s3]
-    ];
-
-    for (let step of spinSteps) {
-      await new Promise(r => setTimeout(r, 1000));
-      await api.editMessage(
-        `━━━━━━━━━━━━━━
-🎰 𝐒𝐋𝐎𝐓 𝐌𝐀𝐂𝐇𝐈𝐍𝐄
-╭─╼━━━━━━━━━━╾─╮
-│     ${step[0]} | ${step[1]} | ${step[2]}
-│
-│  ${status}
-╰─╼━━━━━━━━━━╾─╯
-💰 𝐁𝐀𝐋𝐀𝐍𝐂𝐄: ${user.money}$
-━━━━━━━━━━━━━━`,
-        spinningMsg.messageID,
-        event.threadID
-      );
+    if (isWin) {
+      return message.reply(`${header}🏆 | 𝐘𝐨𝐮 𝐛𝐞𝐭: $${formatNumber(betAmount)}\n💰 | 𝐘𝐨𝐮 𝐰𝐨𝐧: $${formatNumber(betAmount * 2)} (2x)${rewardText}\n🎰 | [ ${s1} | ${s2} | ${s3} ]${footer}`);
+    } else {
+      return message.reply(`${header}💀 | 𝐘𝐨𝐮 𝐛𝐞𝐭: $${formatNumber(betAmount)}\n❌ | 𝐘𝐨𝐮 𝐥𝐨𝐬𝐭 everything!${rewardText}\n🎰 | [ ${s1} | ${s2} | ${s3} ]${footer}`);
     }
   }
 };
 
-const wrapper = new GoatWrapper(module.exports);
-wrapper.applyNoPrefix({ allowPrefix: true });
+function parseSmartAmount(str) {
+  if (typeof str !== 'string') return parseFloat(str);
+  const units = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 };
+  const match = str.toLowerCase().match(/^(\d+(?:\.\d+)?)([kmbt]?)$/);
+  if (!match) return parseFloat(str);
+  return parseFloat(match[1]) * (units[match[2]] || 1);
+}
+
+function formatNumber(num) {
+  if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
+  if (num >= 1e9) return (num / 1e9).toFixed(2) + "B";
+  if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
+  if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
+  return num.toLocaleString();
+}

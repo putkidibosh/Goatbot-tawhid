@@ -1,156 +1,302 @@
-const axios = require("axios");
-const { getPrefix } = global.utils;
-const { commands } = global.GoatBot;
-
-let xfont = null;
-let yfont = null;
-let categoryEmoji = null;
-
-/* ───── Load Fonts & Emoji ───── */
-async function loadResources() {
-  try {
-    const [x, y, c] = await Promise.all([
-      axios.get("https://raw.githubusercontent.com/Saim-x69x/sakura/main/xfont.json"),
-      axios.get("https://raw.githubusercontent.com/Saim-x69x/sakura/main/yfont.json"),
-      axios.get("https://raw.githubusercontent.com/Saim-x69x/sakura/main/category.json")
-    ]);
-    xfont = x.data;
-    yfont = y.data;
-    categoryEmoji = c.data;
-  } catch (e) {
-    console.error("[HELP] Resource load failed");
-  }
-}
-
-/* ───── Font Convert ───── */
-function fontConvert(text, type = "command") {
-  const map = type === "category" ? xfont : yfont;
-  if (!map) return text;
-  return text.split("").map(c => map[c] || c).join("");
-}
-
-function getCategoryEmoji(cat) {
-  return categoryEmoji?.[cat.toLowerCase()] || "🗂️";
-}
-
-function roleText(role) {
-  if (role === 0) return "All Users";
-  if (role === 1) return "Group Admins";
-  if (role === 2) return "Bot Admin";
-  return "Unknown";
-}
-
-/* ───── Command Find ───── */
-function findCommand(name) {
-  name = name.toLowerCase();
-  for (const [, cmd] of commands) {
-    const a = cmd.config?.aliases;
-    if (cmd.config?.name === name) return cmd;
-    if (Array.isArray(a) && a.includes(name)) return cmd;
-    if (typeof a === "string" && a === name) return cmd;
-  }
-  return null;
-}
-
+/cmd install help.js 
 module.exports = {
   config: {
     name: "help",
-    aliases: ["menu"],
-    version: "2.0",
-    author: "Saimx69x | fixed by Aphelion",
+    version: "1.0.0",
+    author: "Mr. King",
+    countDown: 5,
     role: 0,
-    category: "info",
-    shortDescription: "Show all commands",
-    guide: "{pn} | {pn} <command> | {pn} -c <category>"
+    shortDescription: { en: "Displays the list of available commands" },
+    category: "system",
+    guide: { en: "{pn} or {pn} <command name>" }
   },
 
-  onStart: async function ({ message, args, event, role }) {
-    if (!xfont || !yfont || !categoryEmoji) await loadResources();
+  onStart: async function ({ api, event }) {
+    const helpMessage = `╔══════════════╗
+🔹 COMMAND LIST 🔹
+╚══════════════╝
 
-    const prefix = getPrefix(event.threadID);
-    const input = args.join(" ").trim();
+╭────────────⭓
+│『 𝗨𝗧𝗜𝗟𝗜𝗧𝗬 』
+│💠accept💠
+╰────────⭓
+╭────────────⭓
+│『 𝗕𝗢𝗫 𝗖𝗛𝗔𝗧 』
+│💠activemember💠
+│💠adduser💠
+│💠all💠
+│💠antichangeinfobox💠
+│💠onlyadminbox💠
+╰────────⭓
+╭────────────⭓
+│『 𝗢𝗪𝗡𝗘𝗥 』
+│💠addo💠
+│💠file💠
+╰────────⭓
+╭────────────⭓
+│『 𝗕𝗢𝗧 𝗠𝗔𝗡𝗔𝗚𝗘𝗠𝗘𝗡𝗧 』
+│💠adminonly💠
+│💠admins💠
+╰────────⭓
+╭────────────⭓
+│『 𝗢𝗪𝗡𝗘𝗥 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡 』
+│💠admin💠
+╰────────⭓
+╭────────────⭓
+│『 𝗜𝗠𝗔𝗚𝗘 』
+│💠affect💠
+╰────────⭓
+╭────────────⭓
+│『 𝗚𝗔𝗠𝗘𝗦 』
+│💠akinator💠
+╰────────⭓
+╭────────────⭓
+│『 𝗠𝗘𝗗𝗜𝗔 』
+│💠album💠
+│💠autodl💠
+╰────────⭓
+╭────────────⭓
+│『 BOXCHAT 』
+│💠antiout💠
+╰────────⭓
+╭────────────⭓
+│『 𝗠𝗔𝗥𝗞𝗘𝗧 』
+│💠apimarket💠
+╰────────⭓
+╭────────────⭓
+│『 BOX CHAT 』
+│💠autosetname💠
+│💠badwords💠
+│💠ban💠
+│💠boxinfo💠
+│💠busy💠
+│💠count💠
+│💠filteruser💠
+│💠gay💠
+│💠kick💠
+│💠refresh💠
+│💠rules💠
+│💠sendnoti💠
+│💠setname💠
+│💠unsend💠
+│💠warn💠
+╰────────⭓
+╭────────────⭓
+│『 NO PREFIX 』
+│💠audio💠
+│💠fuck you💠
+│💠noprefix💠
+╰────────⭓
+╭────────────⭓
+│『 ADMIN 』
+│💠autoseen💠
+╰────────⭓
+╭────────────⭓
+│『 OWNER 』
+│💠backupdata💠
+│💠cmd💠
+│💠eval💠
+│💠event💠
+│💠getfbstate💠
+│💠hubble💠
+│💠ignoreonlyad💠
+│💠ignoreonlyadbox💠
+│💠join💠
+│💠jsontomongodb💠
+│💠jsontosqlite💠
+│💠loadconfig💠
+│💠out💠
+│💠setavt💠
+│💠setlang💠
+│💠setrankup💠
+│💠thread💠
+│💠update💠
+│💠user💠
+│💠whitelist💠
+│💠whitelistthread💠
+╰────────⭓
+╭────────────⭓
+│『 ECONOMY 』
+│💠bal💠
+│💠balance💠
+│💠set💠
+│💠top💠
+│💠work💠
+╰────────⭓
+╭────────────⭓
+│『 FUN 』
+│💠ball💠
+│💠beauty💠
+│💠bol💠
+│💠choose💠
+│💠drip💠
+│💠emojimix💠
+│💠fight💠
+│💠jail💠
+│💠joke💠
+│💠mark💠
+│💠pickupline💠
+│💠rip💠
+│💠rps💠
+│💠toilet💠
+│💠train💠
+│💠trump💠
+│💠wholesome💠
+│💠wishcard💠
+│💠xl💠
+╰────────⭓
+╭────────────⭓
+│『 TALK 』
+│💠bby💠
+╰────────⭓
+╭────────────⭓
+│『 MEME 』
+│💠buttslap💠
+│💠clown💠
+│💠cry💠
+│💠wanted💠
+╰────────⭓
+╭────────────⭓
+│『 CONTACTS ADMIN 』
+│💠callad💠
+╰────────⭓
+╭────────────⭓
+│『 𝗕𝗢𝗫 』
+│💠clear💠
+╰────────⭓
+╭────────────⭓
+│『 OTHER 』
+│💠coinflip💠
+╰────────⭓
+╭────────────⭓
+│『 USER 』
+│💠coverphoto💠
+╰────────⭓
+╭────────────⭓
+│『 GAME 』
+│💠daily💠
+│💠guessnumber💠
+│💠quiz💠
+│💠ttt💠
+│💠qz ramadan 💠
+╰────────⭓
+╭────────────⭓
+│『 DATE-SYSTEM 』
+│💠time💠
+╰────────⭓
+╭────────────⭓
+│『 WIKI 』
+│💠emojimean💠
+╰────────⭓
+╭────────────⭓
+│『 FUN 』
+│💠gf💠
+│💠hug💠
+╰────────⭓
+╭────────────⭓
+│『 MEDIA 』
+│💠anime💠
+│💠say💠
+│💠say3💠
+│💠sing💠
+│💠song💠
+╰────────⭓
+╭────────────⭓
+│『 FUNNY 』
+│💠meme💠
+╰────────⭓
+╭────────────⭓
+│『 AI 』
+│💠midjourney💠
+╰────────⭓
+╭────────────⭓
+│『 ADMIN 』
+│💠owner💠
+╰────────⭓
+╭────────────⭓
+│『 LOVE 』
+│💠pair💠
+│💠pair2💠
+│💠pair3💠
+│💠ship💠
+│💠us💠
+╰────────⭓
+╭────────────⭓
+│『 CONFIG 』
+│💠prefix💠
+│💠setalias💠
+╰────────⭓
+╭────────────⭓
+│『 SEARCH 』
+│💠qr💠
+╰────────⭓
+╭────────────⭓
+│『 OTHER 』
+│💠question💠
+╰────────⭓
+╭────────────⭓
+│『 OWNER 』
+│💠restart💠
+╰────────⭓
+╭────────────⭓
+│『 CUSTOM 』
+│💠setleave💠
+│💠setwelcome💠
+│💠shortcut💠
+╰────────⭓
+╭────────────⭓
+│『 UTILITY 』
+│💠shell💠
+│💠translate💠
+╰────────⭓
+╭────────────⭓
+│『 COMMAND 』
+│💠snippet💠
+╰────────⭓
+╭────────────⭓
+│『 TEXTPRO 』
+│💠space💠
+╰────────⭓
+╭────────────⭓
+│『 SOPHIA 』
+│💠spam💠
+╰────────⭓
+╭────────────⭓
+│『 𝗚𝗥𝗢𝗨𝗣 𝗠𝗔𝗡𝗔𝗚𝗘𝗠𝗘𝗡𝗧 』
+│💠spamkick💠
+╰────────⭓
+╭────────────⭓
+│『 SYSTEM 』
+│💠autoDelete💠
+│💠system💠
+│💠uptime💠
+╰────────⭓
+╭────────────⭓
+│『 TAG 』
+│💠tag💠
+╰────────⭓
+╭────────────⭓
+│『 GAME 』
+│💠slot💠
+│💠slot2💠
+│💠duck💠
+╰────────⭓
+╭────────────⭓
+│『 ARAFAT 』
+│💠pen💠
+╰────────⭓
+𝗖𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆, 𝘁𝗵𝗲 𝗯𝗼𝘁 𝗵𝗮𝘀 these 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀 𝘁𝗵𝗮𝘁 𝗰𝗮𝗻 𝗯𝗲 𝘂𝘀𝗲𝗱
 
-    /* ───── Collect Categories ───── */
-    const categories = {};
-    for (const [name, cmd] of commands) {
-      if (!cmd?.config || cmd.config.role > role) continue;
-      const cat = (cmd.config.category || "UNCATEGORIZED").toUpperCase();
-      if (!categories[cat]) categories[cat] = [];
-      categories[cat].push(name);
-    }
+𝗧𝘆𝗽𝗲 /𝗵𝗲𝗹𝗽 𝗰𝗺𝗱𝗡𝗮𝗺𝗲 𝘁𝗼 𝘃𝗶𝗲𝘄 𝘁𝗵𝗲 𝗱𝗲𝘁𝗮𝗶𝗹𝘀 𝗼𝗳 𝘁𝗵𝗮𝘁 𝗰𝗼𝗺𝗺𝗮𝗻𝗱
 
-    /* ───── Category View ───── */
-    if (args[0] === "-c" && args[1]) {
-      const cat = args[1].toUpperCase();
-      if (!categories[cat])
-        return message.reply(`❌ Category "${cat}" not found`);
+🫧𝘽𝙊𝙏 𝙉𝘼𝙈𝙀🫧: 『 MISS QUEEN 👑』☁️🫧
+🔹 𝘽𝙊𝙏 𝙊𝙒𝙉𝙀𝙍 🔹
+ 	 					
+~𝙉𝘼𝙈𝙀:✰ 'Mr.King ' ✰
+~𝙁𝘽: Tawhid islam　🐉
 
-      let msg = `━━━━━━━━━━━━━━\n`;
-      msg += `📂 ${getCategoryEmoji(cat)} ${fontConvert(cat, "category")}\n`;
-      msg += `━━━━━━━━━━━━━━\n`;
+𝗠𝗮𝗱𝗲 𝗯𝘆 𝗠𝗿. 𝗞𝗶𝗻𝗴`;
 
-      for (const c of categories[cat].sort())
-        msg += `• ${fontConvert(c)}\n`;
-
-      msg += `━━━━━━━━━━━━━━\n`;
-      msg += `🔢 Total: ${categories[cat].length}\n`;
-      msg += `⚡ Prefix: ${prefix}`;
-
-      return message.reply(msg);
-    }
-
-    /* ───── Main Menu ───── */
-    if (!input) {
-      let msg = `━━━━━━━━━━━━━━\n📜 COMMAND LIST\n━━━━━━━━━━━━━━\n`;
-
-      for (const cat of Object.keys(categories).sort()) {
-        msg += `\n${getCategoryEmoji(cat)} ${fontConvert(cat, "category")}\n`;
-        for (const c of categories[cat].sort())
-          msg += `  • ${fontConvert(c)}\n`;
-      }
-
-      const total = Object.values(categories).reduce((a, b) => a + b.length, 0);
-
-      msg += `\n━━━━━━━━━━━━━━\n`;
-      msg += `🔢 Total Commands: ${total}\n`;
-      msg += `⚡ Prefix: ${prefix}\n`;
-      msg += `👑 Owner: Aphelion`;
-
-      return message.reply(msg);
-    }
-
-    /* ───── Command Info ───── */
-    const cmd = findCommand(input);
-    if (!cmd) return message.reply(`❌ Command "${input}" not found`);
-
-    const c = cmd.config;
-    const aliasText = Array.isArray(c.aliases)
-      ? c.aliases.join(", ")
-      : c.aliases || "None";
-
-    let usage = "No usage";
-    if (c.guide) {
-      if (typeof c.guide === "string") {
-        usage = c.guide;
-      } else if (typeof c.guide === "object") {
-        usage = c.guide.en || Object.values(c.guide)[0] || "No usage";
-      }
-      usage = usage.replace(/{pn}/g, `${prefix}${c.name}`);
-    }
-
-    const msg = `
-╭─── COMMAND INFO ───╮
-🔹 Name : ${c.name}
-📂 Category : ${(c.category || "UNCATEGORIZED").toUpperCase()}
-📜 Description : ${c.longDescription || c.shortDescription || "N/A"}
-🔁 Aliases : ${aliasText}
-⚙️ Version : ${c.version || "1.0"}
-🔐 Permission : ${roleText(c.role)}
-⏱️ Cooldown : ${c.countDown || 5}s
-👑 Author : ${c.author || "Unknown"}
-📖 Usage : ${usage}
-╰───────────────────╯`;
-
-    return message.reply(msg);
+    return api.sendMessage(helpMessage, event.threadID, event.messageID);
   }
 };
